@@ -166,12 +166,11 @@ class DataSpeech():
         return data_input, data_label
 
     def data_genetator(self, batch_size=32, audio_length=1600):
-        '''
-        数据生成器函数，用于Keras的generator_fit训练
-        batch_size: 一次产生的数据量
-        需要再修改。。。
-        '''
-
+        """
+        :param batch_size:
+        :param audio_length:
+        :return:
+        """
         labels = []
         for i in range(0, batch_size):
             # input_length.append([1500])
@@ -179,10 +178,9 @@ class DataSpeech():
 
         labels = np.array(labels, dtype=np.float)
 
-        # print(input_length,len(input_length))
-
         while True:
-            X = np.zeros((batch_size, audio_length, 200, 1), dtype=np.float)
+            X = np.zeros((batch_size, audio_length, 200, 1), dtype=np.float)  # 这个什么意思
+            # batch_size: the size of batch, audio_length: max length of input audio, 200: 频谱的一半, 1: ?
             # y = np.zeros((batch_size, 64, self.SymbolNum), dtype=np.int16)
             y = np.zeros((batch_size, 64), dtype=np.int16)
 
