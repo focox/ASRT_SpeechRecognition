@@ -58,11 +58,10 @@ class ModelSpeech():  # 语音模型类
         :return:
         """
 
-
         input_data = Input(name='the_input', shape=(self.AUDIO_LENGTH, self.AUDIO_FEATURE_LENGTH, 1))
 
         layer_h1 = Conv2D(32, (3, 3), use_bias=False, activation='relu', padding='same',
-                          kernel_initializer='he_normal')(input_data)  # 卷积层
+                          kernel_initializer='he_normal')(input_data)  # 卷积层, 32为核的个数，即输出的维度
         layer_h1 = Dropout(0.05)(layer_h1)
         layer_h2 = Conv2D(32, (3, 3), use_bias=True, activation='relu', padding='same', kernel_initializer='he_normal')(
             layer_h1)  # 卷积层
@@ -115,17 +114,23 @@ class ModelSpeech():  # 语音模型类
         model_data = Model(inputs=input_data, outputs=y_pred)
         # model_data.summary()
 
-        labels = Input(name='the_labels', shape=[self.label_max_string_length], dtype='float32')
-        input_length = Input(name='input_length', shape=[1], dtype='int64')
-        label_length = Input(name='label_length', shape=[1], dtype='int64')
+        y_true = Input(name='y_true', shape=[self.label_max_string_length], dtype='float32')
+        # input_length = Input(name='input_length', shape=[1], dtype='int64')
+        # label_length = Input(name='label_length', shape=[1], dtype='int64')
         # Keras doesn't currently support loss funcs with extra parameters
         # so CTC loss is implemented in a lambda layer
 
         # layer_out = Lambda(ctc_lambda_func,output_shape=(self.MS_OUTPUT_SIZE, ), name='ctc')([y_pred, labels, input_length, label_length])#(layer_h6) # CTC
-        loss_out = Lambda(self.ctc_lambda_func, output_shape=(1,), name='ctc')(
-            [y_pred, labels, input_length, label_length])
+        # loss_out = Lambda(self.ctc_lambda_func, output_shape=(1,), name='ctc')(
+        #     [y_pred, labels, input_length, label_length])
 
-        model = Model(inputs=[input_data, labels, input_length, label_length], outputs=loss_out)
+        # model = Model(inputs=[input_data, labels, input_length, label_length], outputs=loss_out)
+
+        ctc_loss = Lambda(self.ctc_lambda_func, output_shape=(1,), name='ctc_loss')([y_true, y_pred, (None, 1600, 200, 1), (64, None, 1422)])
+        #
+        # ctc_loss = Lambda(K.ctc_batch_cost, output_shape=(1,), name='ctc_loss')([y_true, y_pred, (32, 64), (32, 64)])
+
+        model = Model(inputs=[input_data, y_true], outputs=ctc_loss)
 
         model.summary()
 
@@ -134,7 +139,7 @@ class ModelSpeech():  # 语音模型类
         # opt = Adadelta(lr = 0.01, rho = 0.95, epsilon = 1e-06)
         opt = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, decay=0.0, epsilon=10e-8)
         # model.compile(loss={'ctc': lambda y_true, y_pred: y_pred}, optimizer=sgd)
-        model.compile(loss={'ctc': lambda y_true, y_pred: y_pred}, optimizer=opt)
+        model.compile(loss='ctc_loss', optimizer=opt, metrics=['acc'])
 
         # captures output of softmax so we can decode the output during visualization
         test_func = K.function([input_data], [y_pred])
@@ -144,11 +149,11 @@ class ModelSpeech():  # 语音模型类
         return model, model_data
 
     def ctc_lambda_func(self, args):
-        y_pred, labels, input_length, label_length = args
+        y_true, y_pred, input_length, label_length = args
 
-        y_pred = y_pred[:, :, :]
+        # y_pred = y_pred[:, :, :]
         # y_pred = y_pred[:, 2:, :]
-        return K.ctc_batch_cost(labels, y_pred, input_length, label_length)
+        return K.ctc_batch_cost(y_true, y_pred, input_length, label_length)
 
     def TrainModel(self, modelpath, epochs=2, save_step=1000, batch_size=32):
 
@@ -157,9 +162,11 @@ class ModelSpeech():  # 语音模型类
         data = read_data(self.datapath)
         train_x_y = data.generate_batch('train', batch_size=batch_size)
         cv_x_y = data.generate_batch('cv', batch_size=batch_size)
-        self._model.fit_generator(train_x_y, steps_per_epoch=5, epochs=1, verbose=1, callbacks=[checkpoint],
-                                  class_weight=None, max_queue_size=10,
-                                  workers=1, use_multiprocessing=True, shuffle=True, initial_epoch=0)
+        # self._model.fit_generator(train_x_y, steps_per_epoch=5, epochs=1, verbose=1, callbacks=[checkpoint],
+        #                           class_weight=None, max_queue_size=10,
+        #                           workers=1, use_multiprocessing=True, shuffle=True, initial_epoch=0)
+
+        self._model.fit_generator(train_x_y, steps_per_epoch=5, verbose=1)
 
     def Predict(self, data_input, input_len):
         '''

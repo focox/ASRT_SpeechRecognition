@@ -206,8 +206,8 @@ class DataSpeech():
                 # print(i,y[i].shape)
                 label_length.append([len(data_labels)])
 
-            label_length = np.matrix(label_length)
-            input_length = np.array(input_length).T
+            label_length = np.matrix(label_length)  # 目的是什么
+            input_length = np.array(input_length).T  # 目的是什么
             # input_length = np.array(input_length)
             # print('input_length:\n',input_length)
             # X=X.reshape(batch_size, audio_length, 200, 1)

@@ -77,6 +77,14 @@ class read_data():
         :param shuffle: if shuffle is True, generate data randomly.
         :return: [x, y], epoch
         """
+
+        labels_loss = []
+        for i in range(0, batch_size):
+            # input_length.append([1500])
+            labels_loss.append([0.0])
+
+        labels_loss = np.array(labels_loss, dtype=np.float)
+
         if data_type == 'train':
             quantity = self.quantity_train
         elif data_type == 'cv':
@@ -88,14 +96,20 @@ class read_data():
         x_refer, y_refer = self.get_sample(data_type=data_type, sample_index=1)
         x_shape = x_refer.shape
         y_shape = y_refer.shape
-        x = np.zeros((batch_size, x_shape[0], x_shape[1], x_shape[2]), dtype=np.float)
-        y = np.zeros((batch_size, y_shape[0], y_shape[1]), dtype=np.float)
 
         sample_index = np.arange(quantity)
         if shuffle:
             np.random.shuffle(sample_index)
         end = 0
+
+        input_length = []
+        label_length = []
+
         while True:
+
+            x = np.zeros((batch_size, x_shape[0], x_shape[1], x_shape[2]), dtype=np.float)
+            y = np.zeros((batch_size, y_shape[0]), dtype=np.int16)
+
             start = end
             end = start + batch_size
             if end >= quantity-1:
@@ -108,9 +122,22 @@ class read_data():
                 samples = sample_index[start:end]
                 epoch = False
             for idx, i in enumerate(samples):
-                x[idx], y[idx] = self.get_sample(data_type, sample_index=i)
+                x_sample, y_sample = self.get_sample(data_type=data_type, sample_index=i)
+                x[idx], y[idx] = x_sample, y_sample
             # print([x, y], epoch)
-            yield [x, y]
+
+            input_length.append(x_sample.shape)
+            label_length.append([len(y_sample)])
+            #
+            label_length = np.matrix(label_length)  # 目的是什么
+            input_length = np.array(input_length)  # 目的是什么
+
+            # model = Model(inputs=[input_data, labels, input_length, label_length], outputs=loss_out)
+
+            yield [x, y, input_length, label_length], labels_loss
+
+            # yield [x, y.flatten()]
+
 
     def get_syllable_serial(self, chars, syllable_label_length=64):
         """
